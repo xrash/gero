@@ -9,6 +9,7 @@ import (
 type Logger interface {
 	Info(format string, params ...interface{}) []error
 	Error(format string, params ...interface{}) []error
+	Debug(format string, params ...interface{}) []error
 }
 
 func (b *Bot) ConfigureLogger(verbose bool, logfile string) error {
