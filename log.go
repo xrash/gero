@@ -12,13 +12,13 @@ type Logger interface {
 	Debug(format string, params ...interface{}) []error
 }
 
-func (b *Bot) ConfigureLogger(verbose bool, logfile string) error {
+func (b *Bot) ConfigureLogger(verbose bool, logfile string, level string) error {
 	if verbose {
-		b.ConfigureOutput()
+		b.ConfigureOutput(level)
 	}
 
 	if logfile != "" {
-		if err := b.ConfigureLogfile(logfile); err != nil {
+		if err := b.ConfigureLogfile(logfile, level); err != nil {
 			return err
 		}
 	}
@@ -26,14 +26,14 @@ func (b *Bot) ConfigureLogger(verbose bool, logfile string) error {
 	return nil
 }
 
-func (b *Bot) ConfigureOutput() {
+func (b *Bot) ConfigureOutput(level string) {
 	basicFormatter := formatters.NewBasicFormatter()
 	stdoutHandler := handlers.NewStdoutHandler()
-	b.logger.AddHandler(stdoutHandler, basicFormatter, gol.LEVEL_DEBUG)
+	b.logger.AddHandler(stdoutHandler, basicFormatter, gol.NewLogLevel(level))
 	b.logger.Info("Setting verbose output")
 }
 
-func (b *Bot) ConfigureLogfile(logfile string) error {
+func (b *Bot) ConfigureLogfile(logfile string, level string) error {
 	basicFormatter := formatters.NewBasicFormatter()
 	fileHandler := handlers.NewFileHandler(logfile)
 
@@ -41,7 +41,7 @@ func (b *Bot) ConfigureLogfile(logfile string) error {
 		return err
 	}
 
-	b.logger.AddHandler(fileHandler, basicFormatter, gol.LEVEL_DEBUG)
+	b.logger.AddHandler(fileHandler, basicFormatter, gol.NewLogLevel(level))
 
 	b.logger.Info("Setting logfile %s", logfile)
 
