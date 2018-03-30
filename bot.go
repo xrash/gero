@@ -3,6 +3,7 @@ package gero
 import (
 	"github.com/bwmarrin/discordgo"
 	"github.com/xrash/gero/stats"
+	"github.com/xrash/gero/msg"
 	"github.com/xrash/gol"
 )
 
@@ -15,6 +16,9 @@ type Bot struct {
 
 	// Logger.
 	logger *gol.Logger
+
+	// Messenger.
+	messenger *msg.Messenger
 
 	// Current stats.
 	stats *stats.Stats
@@ -42,6 +46,10 @@ func (b *Bot) Session() *discordgo.Session {
 
 func (b *Bot) Stats() *stats.Stats {
 	return b.stats
+}
+
+func (b *Bot) Msg() *msg.Messenger {
+	return b.messenger
 }
 
 func (b *Bot) RegisterExitCleaner(ec ExitCleaner) {
