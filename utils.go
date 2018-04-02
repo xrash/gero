@@ -5,18 +5,18 @@ import (
 	"strings"
 )
 
-func removePrefix(userId, message string, prefixConfig *PrefixConfig) (string, bool) {
+func removePrefix(userId, message string, prefixConfig *PrefixConfig) string {
 	message = strings.TrimSpace(message)
 
 	if !prefixConfig.CheckForPrefix {
-		return message, true
+		return message
 	}
 
 	if prefixConfig.ConsiderMentionPrefix {
 		prefix := fmt.Sprintf("<@%s>", userId)
 		if strings.HasPrefix(message, prefix) {
 			newMessage := strings.TrimPrefix(message, prefix)
-			return strings.TrimSpace(newMessage), true
+			return strings.TrimSpace(newMessage)
 		}
 	}
 
@@ -24,10 +24,10 @@ func removePrefix(userId, message string, prefixConfig *PrefixConfig) (string, b
 		for _, prefix := range prefixConfig.Prefixes {
 			if strings.HasPrefix(message, prefix) {
 				newMessage := strings.TrimPrefix(message, prefix)
-				return newMessage, true
+				return newMessage
 			}
 		}
 	}
 
-	return message, false
+	return message
 }
