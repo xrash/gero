@@ -2,8 +2,8 @@ package gero
 
 import (
 	"github.com/bwmarrin/discordgo"
-	"github.com/xrash/gero/stats"
 	"github.com/xrash/gero/msg"
+	"github.com/xrash/gero/stats"
 	"github.com/xrash/gol"
 )
 

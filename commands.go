@@ -32,7 +32,10 @@ func (b *Bot) HandleCommands(prefixConfig *PrefixConfig, commands map[string]Com
 			return
 		}
 
-		command := removePrefix(s.State.User.ID, m.Content, prefixConfig)
+		command, ok := processPrefix(s.State.User.Mention(), m.Content, prefixConfig)
+		if !ok {
+			return
+		}
 
 		for pattern, handler := range commands {
 			r := regexps[pattern]
