@@ -52,6 +52,10 @@ func (b *Bot) Msg() *msg.Messenger {
 	return b.messenger
 }
 
+func (b *Bot) SetStatus(s string) error {
+	return b.session.UpdateStatus(0, s)
+}
+
 func (b *Bot) RegisterExitCleaner(ec ExitCleaner) {
 	b.exitCleaners = append(b.exitCleaners, ec)
 }
