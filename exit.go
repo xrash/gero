@@ -5,6 +5,8 @@ import (
 	"os/signal"
 )
 
+type ExitCleaner func()
+
 func (b *Bot) WaitProgramExit() {
 	b.logger.Info("Waiting for program exit trigger")
 
@@ -18,5 +20,12 @@ func (b *Bot) WaitProgramExit() {
 		b.logger.Notice("Program purposely exiting: %s", r)
 	}
 
-	b.gracefullyExit()
+	b.GracefullyExit()
+}
+
+func (b *Bot) GracefullyExit() {
+	b.statusManager.Exit()
+	for _, ec := range b.exitCleaners {
+		ec()
+	}
 }

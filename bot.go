@@ -7,8 +7,6 @@ import (
 	"github.com/xrash/gol"
 )
 
-type ExitCleaner func()
-
 type Bot struct {
 	// Session management.
 	oauth2token string
@@ -26,13 +24,17 @@ type Bot struct {
 	// Exit channel.
 	exitCleaners []ExitCleaner
 	exitChannel  chan string
+
+	// Status Manager.
+	statusManager *StatusManager
 }
 
 func NewBot() *Bot {
 	return &Bot{
-		exitCleaners: make([]ExitCleaner, 0),
-		exitChannel:  make(chan string, 1),
-		logger:       gol.NewLogger(),
+		exitCleaners:  make([]ExitCleaner, 0),
+		exitChannel:   make(chan string, 1),
+		logger:        gol.NewLogger(),
+		statusManager: NewStatusManager(),
 	}
 }
 
@@ -52,16 +54,10 @@ func (b *Bot) Msg() *msg.Messenger {
 	return b.messenger
 }
 
-func (b *Bot) SetStatus(s string) error {
-	return b.session.UpdateStatus(0, s)
+func (b *Bot) Status() *StatusManager {
+	return b.statusManager.WithBot(b)
 }
 
 func (b *Bot) RegisterExitCleaner(ec ExitCleaner) {
 	b.exitCleaners = append(b.exitCleaners, ec)
-}
-
-func (b *Bot) gracefullyExit() {
-	for _, ec := range b.exitCleaners {
-		ec()
-	}
 }
