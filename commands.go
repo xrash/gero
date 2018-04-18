@@ -45,6 +45,10 @@ func (b *Bot) HandleCommands(prefixConfig *PrefixConfig, commands map[string]Com
 				continue
 			}
 
+			if b.messenger != nil {
+				b.messenger.ReceivedMessages().Capture(m.ChannelID, m.ID)
+			}
+
 			err := handler(b, m, found[1:])
 			if err != nil {
 				b.logger.Error("Error in command handler [%s]: %s", pattern, err)

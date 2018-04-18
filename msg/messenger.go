@@ -2,25 +2,32 @@ package msg
 
 import (
 	"github.com/bwmarrin/discordgo"
-	"sync"
+	"fmt"
 )
 
 type Messenger struct {
-	session *discordgo.Session
-	logger  Logger
-	color   int
-
-	sentLock *sync.Mutex
-	sent     map[string][]string
+	session          *discordgo.Session
+	logger           Logger
+	color            int
+	sentMessages     *MessengerBag
+	receivedMessages *MessengerBag
 }
 
 func NewMessenger(session *discordgo.Session, logger Logger, color int) *Messenger {
 	return &Messenger{
-		session:  session,
-		logger:   logger,
-		color:    color,
-		sentLock: &sync.Mutex{},
-		sent:     make(map[string][]string),
+		session:          session,
+		logger:           logger,
+		color:            color,
+		sentMessages:     NewMessengerBag(48, 16),
+		receivedMessages: NewMessengerBag(48, 16),
+	}
+}
+
+func (ms *Messenger) BuildEmbed(content string) *discordgo.MessageEmbed {
+	return &discordgo.MessageEmbed{
+		Author:      &discordgo.MessageEmbedAuthor{},
+		Color:       ms.color,
+		Description: content,
 	}
 }
 
@@ -30,7 +37,7 @@ func (ms *Messenger) Send(channelId, content string) {
 		if err != nil {
 			ms.logger.Error("Error sending message: %v", err)
 		} else {
-			ms.capture(channelId, m.ID)
+			ms.sentMessages.Capture(channelId, m.ID)
 		}
 	}()
 }
@@ -47,18 +54,14 @@ func (ms *Messenger) SendTemplate(channelId, template string, data interface{}) 
 }
 
 func (ms *Messenger) SendEmbed(channelId, content string) {
-	embed := &discordgo.MessageEmbed{
-		Author:      &discordgo.MessageEmbedAuthor{},
-		Color:       ms.color,
-		Description: content,
-	}
+	embed := ms.BuildEmbed(content)
 
 	go func() {
 		m, err := ms.session.ChannelMessageSendEmbed(channelId, embed)
 		if err != nil {
 			ms.logger.Error("Error sending embed message: %v", err)
 		} else {
-			ms.capture(channelId, m.ID)
+			ms.sentMessages.Capture(channelId, m.ID)
 		}
 	}()
 }
@@ -74,43 +77,55 @@ func (ms *Messenger) SendEmbedTemplate(channelId, template string, data interfac
 	}()
 }
 
-func (ms *Messenger) Clean(channelId string) (int, error) {
-	ms.sentLock.Lock()
-	defer ms.sentLock.Unlock()
-
-	qtt := len(ms.sent[channelId])
-
-	if qtt < 1 {
-		return -1, nil
-	}
-
-	err := ms.session.ChannelMessagesBulkDelete(channelId, ms.sent[channelId])
-	if err != nil {
-		ms.logger.Error("Error processing template: %v", err)
-	}
-
-	ms.sent[channelId] = make([]string, 0)
-
-	return qtt, err
+func (ms *Messenger) ReceivedMessages() *MessengerBag {
+	return ms.receivedMessages
 }
 
-func (ms *Messenger) capture(cid, mid string) {
-	ms.sentLock.Lock()
-	defer ms.sentLock.Unlock()
+func (ms *Messenger) SentMessages() *MessengerBag {
+	return ms.sentMessages
+}
 
-	maxListSize := 80
-	minListSize := maxListSize / 2
+func (ms *Messenger) Clean(channelId string) (int, error) {
+	var total int
+	var err error
+	var s, r map[string][]string
 
-	list := ms.sent[cid]
-	if list == nil {
-		list = make([]string, 0)
+	ms.sentMessages.WithBag(func(sent map[string][]string) map[string][]string {
+		ms.receivedMessages.WithBag(func(recv map[string][]string) map[string][]string {
+			s, r, total, err = ms.doClean(channelId, sent, recv)
+			return r
+		})
+		return s
+	})
+
+	return total, nil
+}
+
+func (ms *Messenger) doClean(channelId string, sent, recv map[string][]string) (map[string][]string, map[string][]string, int, error) {
+	sqtt := len(sent[channelId])
+	rqtt := len(recv[channelId])
+	total := sqtt + rqtt
+
+	if total < 1 {
+		return sent, recv, 0, nil
 	}
 
-	list = append(list, mid)
+	messages := make([]string, 0)
+	messages = append(messages, sent[channelId]...)
+	messages = append(messages, recv[channelId]...)
 
-	if len(list) > maxListSize {
-		list = list[len(list)-minListSize:]
+	fmt.Println(total)
+	fmt.Println(messages)
+	fmt.Println(len(messages))
+
+	err := ms.session.ChannelMessagesBulkDelete(channelId, messages)
+	if err != nil {
+//		ms.logger.Error("Error removing messages: %v", err)
+//		return sent, recv, -1, err
 	}
 
-	ms.sent[cid] = list
+	sent[channelId] = make([]string, 0)
+	recv[channelId] = make([]string, 0)
+
+	return sent, recv, total, nil
 }
