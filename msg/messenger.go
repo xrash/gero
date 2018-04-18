@@ -2,64 +2,115 @@ package msg
 
 import (
 	"github.com/bwmarrin/discordgo"
+	"sync"
 )
 
 type Messenger struct {
 	session *discordgo.Session
 	logger  Logger
 	color   int
+
+	sentLock *sync.Mutex
+	sent     map[string][]string
 }
 
 func NewMessenger(session *discordgo.Session, logger Logger, color int) *Messenger {
 	return &Messenger{
-		session: session,
-		logger:  logger,
-		color:   color,
+		session:  session,
+		logger:   logger,
+		color:    color,
+		sentLock: &sync.Mutex{},
+		sent:     make(map[string][]string),
 	}
 }
 
-func (m *Messenger) Send(channelId, content string) {
+func (ms *Messenger) Send(channelId, content string) {
 	go func() {
-		_, err := m.session.ChannelMessageSend(channelId, content)
+		m, err := ms.session.ChannelMessageSend(channelId, content)
 		if err != nil {
-			m.logger.Error("Error sending message: %v", err)
+			ms.logger.Error("Error sending message: %v", err)
+		} else {
+			ms.capture(channelId, m.ID)
 		}
 	}()
 }
 
-func (m *Messenger) SendTemplate(channelId, template string, data interface{}) {
+func (ms *Messenger) SendTemplate(channelId, template string, data interface{}) {
 	go func() {
 		content, err := ProcessTemplate(template, data)
 		if err != nil {
-			m.logger.Error("Error processing template: %v", err)
+			ms.logger.Error("Error processing template: %v", err)
 		}
 
-		m.Send(channelId, content)
+		ms.Send(channelId, content)
 	}()
 }
 
-func (m *Messenger) SendEmbed(channelId, content string) {
+func (ms *Messenger) SendEmbed(channelId, content string) {
 	embed := &discordgo.MessageEmbed{
 		Author:      &discordgo.MessageEmbedAuthor{},
-		Color:       m.color,
+		Color:       ms.color,
 		Description: content,
 	}
 
 	go func() {
-		_, err := m.session.ChannelMessageSendEmbed(channelId, embed)
+		m, err := ms.session.ChannelMessageSendEmbed(channelId, embed)
 		if err != nil {
-			m.logger.Error("Error sending embed message: %v", err)
+			ms.logger.Error("Error sending embed message: %v", err)
+		} else {
+			ms.capture(channelId, m.ID)
 		}
 	}()
 }
 
-func (m *Messenger) SendEmbedTemplate(channelId, template string, data interface{}) {
+func (ms *Messenger) SendEmbedTemplate(channelId, template string, data interface{}) {
 	go func() {
 		content, err := ProcessTemplate(template, data)
 		if err != nil {
-			m.logger.Error("Error processing template: %v", err)
+			ms.logger.Error("Error processing template: %v", err)
 		}
 
-		m.SendEmbed(channelId, content)
+		ms.SendEmbed(channelId, content)
 	}()
+}
+
+func (ms *Messenger) Clean(channelId string) (int, error) {
+	ms.sentLock.Lock()
+	defer ms.sentLock.Unlock()
+
+	qtt := len(ms.sent[channelId])
+
+	if qtt < 1 {
+		return -1, nil
+	}
+
+	err := ms.session.ChannelMessagesBulkDelete(channelId, ms.sent[channelId])
+	if err != nil {
+		ms.logger.Error("Error processing template: %v", err)
+	}
+
+	ms.sent[channelId] = make([]string, 0)
+
+	return qtt, err
+}
+
+func (ms *Messenger) capture(cid, mid string) {
+	ms.sentLock.Lock()
+	defer ms.sentLock.Unlock()
+
+	maxListSize := 80
+	minListSize := maxListSize / 2
+
+	list := ms.sent[cid]
+	if list == nil {
+		list = make([]string, 0)
+	}
+
+	list = append(list, mid)
+
+	if len(list) > maxListSize {
+		list = list[len(list)-minListSize:]
+	}
+
+	ms.sent[cid] = list
 }
