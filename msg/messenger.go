@@ -2,7 +2,6 @@ package msg
 
 import (
 	"github.com/bwmarrin/discordgo"
-	"fmt"
 )
 
 type Messenger struct {
@@ -98,7 +97,7 @@ func (ms *Messenger) Clean(channelId string) (int, error) {
 		return s
 	})
 
-	return total, nil
+	return total, err
 }
 
 func (ms *Messenger) doClean(channelId string, sent, recv map[string][]string) (map[string][]string, map[string][]string, int, error) {
@@ -114,18 +113,10 @@ func (ms *Messenger) doClean(channelId string, sent, recv map[string][]string) (
 	messages = append(messages, sent[channelId]...)
 	messages = append(messages, recv[channelId]...)
 
-	fmt.Println(total)
-	fmt.Println(messages)
-	fmt.Println(len(messages))
-
 	err := ms.session.ChannelMessagesBulkDelete(channelId, messages)
-	if err != nil {
-//		ms.logger.Error("Error removing messages: %v", err)
-//		return sent, recv, -1, err
-	}
 
 	sent[channelId] = make([]string, 0)
 	recv[channelId] = make([]string, 0)
 
-	return sent, recv, total, nil
+	return sent, recv, total, err
 }
